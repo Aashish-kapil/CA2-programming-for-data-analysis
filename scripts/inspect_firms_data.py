@@ -1,8 +1,7 @@
-"""Inspect the existing FIRMS sample without fetching or changing data."""
-
 from pathlib import Path
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -15,54 +14,42 @@ EXPECTED_COLUMNS = [
     "bright_ti5", "frp", "daynight",
 ]
 
+df = pd.read_csv(CSV_PATH, dtype="string")
 
-def main() -> None:
-    # Strings preserve original field representations, including time zeroes.
-    df = pd.read_csv(CSV_PATH, dtype="string")
-    print("File:", CSV_PATH)
-    print("Shape (rows, columns):", df.shape)
-    print("Columns:", df.columns.tolist())
-    print("Missing expected columns:", sorted(set(EXPECTED_COLUMNS) - set(df.columns)))
-    print("Additional columns:", sorted(set(df.columns) - set(EXPECTED_COLUMNS)))
-    print("\nMissing values per column:")
-    print(df.isna().sum().to_string())
+print('shape',df.shape)
+print('columns',df.columns.to_list())
 
-    required = {"frp", "confidence", "latitude", "longitude", "acq_date",
-                "satellite", "instrument", "daynight"}
-    if not required.issubset(df.columns):
-        raise ValueError(f"Cannot complete inspection; missing: {sorted(required - set(df.columns))}")
+print('missing values',df.isna().sum())
+print('Duplicates:',df.duplicated().sum())
 
-    missing_frp = df["frp"].isna()
-    missing_confidence = df["confidence"].isna()
-    print("\nRows missing both FRP and confidence:", int((missing_frp & missing_confidence).sum()))
-    print("Rows missing either (zero-based DataFrame index shown):")
-    print(df.loc[missing_frp | missing_confidence].to_string())
-    print("\nExact duplicate rows beyond first occurrence:", int(df.duplicated().sum()))
-    print("All members of exact duplicate groups:")
-    print(df.loc[df.duplicated(keep=False)].to_string())
+latitude = pd.to_numeric(df['latitude'], errors='coerce')
+longitude = pd.to_numeric(df['longitude'], errors='coerce')
 
-    for column, lower, upper in [("latitude", -90, 90), ("longitude", -180, 180)]:
-        numeric = pd.to_numeric(df[column], errors="coerce")
-        invalid = ~numeric.between(lower, upper)
-        print(f"\n{column} numeric range: {numeric.min()} to {numeric.max()}")
-        print("Nonmissing values that failed numeric conversion:", int((df[column].notna() & numeric.isna()).sum()))
-        print("Invalid or missing coordinates:", int(invalid.sum()))
-        print(df.loc[invalid].to_string())
+valid_latitude = latitude.between(-90, 90)
+valid_longitude = longitude.between(-180, 180)
 
-    for column in ["confidence", "satellite", "instrument", "daynight", "type"]:
-        if column in df.columns:
-            print(f"\n{column} values (including missing):")
-            print(df[column].value_counts(dropna=False).to_string())
+invalid_coordinates = ~(valid_latitude & valid_longitude)
 
-    frp = pd.to_numeric(df["frp"], errors="coerce")
-    print("\nFRP summary (MW):")
-    print(frp.describe().to_string())
-    print("Nonmissing FRP values that failed numeric conversion:", int((df["frp"].notna() & frp.isna()).sum()))
-    print("Negative FRP values:", int((frp < 0).sum()))
-    dates = pd.to_datetime(df["acq_date"], format="%Y-%m-%d", errors="coerce")
-    print("\nAcquisition date range:", dates.min(), "to", dates.max())
-    print("Invalid or missing acquisition dates:", int(dates.isna().sum()))
+print('invalid coordinates:', invalid_coordinates.sum())
+print('latitude range:', latitude.min(), latitude.max())
+print('longitude range:', longitude.min(), longitude.max())
 
+print('Satellite', df['satellite'].value_counts(dropna=False))
+print('Instrument', df['instrument'].value_counts(dropna=False))
 
-if __name__ == "__main__":
-    main()
+print('Confidence', df['confidence'].value_counts(dropna=False))
+print('Type', df['type'].value_counts(dropna=False))
+
+type2 = df['type'] == '2'
+print(df.loc[type2])
+
+frp = pd.to_numeric(df['frp'], errors='coerce')
+print(frp.describe())
+plt.hist(frp.dropna(), bins=30)
+plt.show()
+
+# Highly right skewed data.
+
+dates = pd.to_datetime(df['acq_date'], errors='coerce')
+print('invalid date', dates.isna().sum())
+print(dates.value_counts().sort_index())

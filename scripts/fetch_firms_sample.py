@@ -44,7 +44,7 @@ response.raise_for_status()
 print("HTTP status:", response.status_code)
 print("Response size:", len(response.content), "bytes")
 
-# Save original response before processing
+
 output_dir = Path("data/raw/firms")
 output_dir.mkdir(parents=True, exist_ok=True)
 
