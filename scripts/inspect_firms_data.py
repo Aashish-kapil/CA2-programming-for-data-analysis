@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 print(Path(__file__).resolve())
 print(Path(__file__).resolve().parents)
-CSV_PATH = PROJECT_ROOT / "data/raw/firms/portugal_sample_2025.csv"
+CSV_PATH = PROJECT_ROOT / "data/raw/firms/firms_2026-11-16.csv"
 EXPECTED_COLUMNS = [
     "latitude", "longitude", "bright_ti4", "scan", "track", "acq_date",
     "acq_time", "satellite", "instrument", "confidence", "version",
@@ -38,18 +38,16 @@ print('Satellite', df['satellite'].value_counts(dropna=False))
 print('Instrument', df['instrument'].value_counts(dropna=False))
 
 print('Confidence', df['confidence'].value_counts(dropna=False))
-print('Type', df['type'].value_counts(dropna=False))
 
-type2 = df['type'] == '2'
-print(df.loc[type2])
+# checking skewed data by histogram.
+# frp = pd.to_numeric(df['frp'], errors='coerce')
+# print(frp.describe())
+# plt.hist(frp.dropna(), bins=30)
+# plt.show()
 
-frp = pd.to_numeric(df['frp'], errors='coerce')
-print(frp.describe())
-plt.hist(frp.dropna(), bins=30)
-plt.show()
+acquisition_time = df["acq_time"].str.zfill(4)
 
-# Highly right skewed data.
+df["acquired_at"] = pd.to_datetime(df['acq_date'] + " " + acquisition_time, format="%Y-%m-%d %H%M", errors='coerce', utc=True)
 
-dates = pd.to_datetime(df['acq_date'], errors='coerce')
-print('invalid date', dates.isna().sum())
-print(dates.value_counts().sort_index())
+print(df[["acq_date", "acq_time", "acquired_at"]])
+print("Invalid timestamps:", df["acquired_at"].isna().sum())
