@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def load_firms_data(csv_path: Path) -> None:
+def load_firms_data(csv_path: Path) -> dict[str, int]:
     raw_df = pd.read_csv(csv_path, dtype="string")
     df = transform_firms_data(raw_df)
     validate_firms_data(df)
@@ -14,7 +14,11 @@ def load_firms_data(csv_path: Path) -> None:
 
     if df.empty:
         print("Zero observations received. Nothing to load.")
-        return
+        return {
+        "records_received": 0,
+        "records_inserted": 0,
+        "records_skipped": 0,
+    }
 
     columns = [
     "satellite", "instrument", "acquired_at", "latitude", "longitude",
@@ -71,6 +75,12 @@ def load_firms_data(csv_path: Path) -> None:
 
     print("Inserted observations:", inserted_count)
     print("Already stored observations:", skipped_count)
+
+    return {
+        "records_received": len(df),
+        "records_inserted": inserted_count,
+        "records_skipped": skipped_count,
+    }
 
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parents[1]
