@@ -11,12 +11,18 @@ EXPECTED_COLUMNS = [
 ]
 
 def transform_firms_data(raw_df: pd.DataFrame) -> pd.DataFrame:
+    missing_columns = set(EXPECTED_COLUMNS) - set(raw_df.columns)
+    if missing_columns:
+        raise ValueError(f"Exiting due to missing columns in the CSV data: {missing_columns}")
+
     df = raw_df.copy()
     numeric_columns = ["latitude", "longitude", "bright_ti4", "scan", "track", "bright_ti5", "frp"]
 
     for column in numeric_columns:
         converted = pd.to_numeric(df[column], errors='coerce')
         conversion_failures = df[column].notna() & converted.isna()
+        if conversion_failures.any():
+            raise ValueError(f"Invalid Numeric values in column {column}")
         print(f"Column '{column}': {conversion_failures.sum()} conversion failures")
         df[column] = converted
 
@@ -25,49 +31,36 @@ def transform_firms_data(raw_df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-raw_df = pd.read_csv(CSV_PATH, dtype="string")
-missing_columns = set(EXPECTED_COLUMNS) - set(raw_df.columns)
-if missing_columns:
-    raise SystemExit(f"Exiting due to missing columns in the CSV data: {missing_columns}")
+def validate_firms_data(df: pd.DataFrame) -> None:
+    valid_rows = (
+        df["latitude"].between(-90, 90).fillna(False)
+        & df["longitude"].between(-180, 180).fillna(False)
+        & df["acquired_at"].notna()
+        & df["satellite"].isin(["N21"])
+        & df["instrument"].isin(["VIIRS"])
+        & df["confidence"].isin(["l", "n", "h"])
+        & df["daynight"].isin(["D", "N"])
+        & (df["frp"].isna() | df["frp"].ge(0)).fillna(False)
+    )
+    invalid_count = int((~valid_rows).sum())
 
-df = transform_firms_data(raw_df)
-# Lat & Log validation
-invalid_coordinates = ~(df['latitude'].between(-90, 90).fillna(False) & df['longitude'].between(-180, 180).fillna(False))
+    if invalid_count:
+        raise ValueError(f"Validation failed for {invalid_count} observations.")
 
-# negative frp
-negative_frp = df['frp'] < 0
 
-# invalid confidence values
-invalid_confidence = ~df['confidence'].isin(['l', 'n', 'h'])
 
-# invalid DayNight
-invalid_daynight = ~df['daynight'].isin(['D', 'N'])
+def main() -> None:
+    raw_df = pd.read_csv(CSV_PATH, dtype="string")
 
-# invalid satellite values
-invalid_satellite = ~df['satellite'].isin(['N21'])
+    df = transform_firms_data(raw_df)
+    validate_firms_data(df)
 
-# invalid instrument values
-invalid_instrument = ~df['instrument'].isin(['VIIRS'])
+    print("Validation passed.")
+    print("Shape:", df.shape)
+    print("Missing values:")
+    print(df.isna().sum())
+    print("Exact duplicates:", df.duplicated().sum())
+    print(df[["satellite", "acquired_at", "latitude", "longitude", "frp"]])
 
-print('shape',df.shape)
-print('columns',df.columns.to_list())
-print('missing values',df.isna().sum())
-print('Duplicates:',df.duplicated().sum())
-print('Satellite', df['satellite'].value_counts(dropna=False))
-print('Instrument', df['instrument'].value_counts(dropna=False))
-print('Confidence', df['confidence'].value_counts(dropna=False))
-print(df[["acq_date", "acq_time", "acquired_at"]])
-print("Invalid timestamps:", df["acquired_at"].isna().sum())
-print("Invalid coordinates:", invalid_coordinates.sum())
-print("Negative FRP values:", negative_frp.sum())
-print("Invalid confidence values:", invalid_confidence.sum())
-print("Invalid DayNight values:", invalid_daynight.sum())
-print("Invalid satellite values:", invalid_satellite.sum())
-print("Invalid instrument values:", invalid_instrument.sum())
-
-empty_raw_df = raw_df.iloc[:0].copy()
-empty_df = transform_firms_data(empty_raw_df)
-
-print("Empty input shape:", empty_raw_df.shape)
-print("Empty transformed shape:", empty_df.shape)
-print("Timestamp type:", empty_df["acquired_at"].dtype)
+if __name__ == "__main__":
+    main()
