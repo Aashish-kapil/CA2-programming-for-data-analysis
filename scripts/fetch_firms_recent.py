@@ -4,6 +4,7 @@ import requests
 from dotenv import load_dotenv
 import pandas as pd
 import io
+from datetime import timezone, datetime
 
 SOURCE = "VIIRS_NOAA21_NRT"
 AREA = "-9.6,36.8,-6.1,42.2"
@@ -24,7 +25,14 @@ def fetch_firms_data(start_date: str, day_range: int) -> Path:
     output_dir = project_root / "data/raw/firms"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    output_file = output_dir / f"{SOURCE}_{start_date}_{day_range}days.csv"
+    extraction_time = datetime.now(timezone.utc).strftime(
+        "%Y%m%dT%H%M%S%fZ"
+    )
+
+    output_file = output_dir / (
+        f"{SOURCE}_{start_date}_{day_range}days_"
+        f"fetched_{extraction_time}.csv"
+    )
 
     if output_file.exists():
         raise FileExistsError(f"Output already exists: {output_file}")

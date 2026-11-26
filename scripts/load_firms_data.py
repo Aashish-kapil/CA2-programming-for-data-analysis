@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def main(csv_path: Path) -> None:
+def load_firms_data(csv_path: Path) -> None:
     raw_df = pd.read_csv(csv_path, dtype="string")
     df = transform_firms_data(raw_df)
     validate_firms_data(df)
@@ -75,4 +75,4 @@ def main(csv_path: Path) -> None:
 if __name__ == "__main__":
     project_root = Path(__file__).resolve().parents[1]
     csv_path = project_root / "data/raw/firms/firms_2026-11-20.csv"
-    main(csv_path)
+    load_firms_data(csv_path)
